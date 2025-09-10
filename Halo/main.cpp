@@ -7,25 +7,24 @@
 #include <thread>
 
 #include "Halo.hpp"
-#define NONVAR 1
+
 using namespace std;
 using namespace HALO;
-int n = 32;
+int n = 64;
 int main(int argc, char *argv[]) {
   PM_PATH = "/mnt/pmem/Halo/";
 
 #ifdef NONVAR
-  Halo<size_t, size_t> halo(32);
+  Halo<size_t, size_t> halo(32 * 1024);
 #elif VARVALUE
-  Halo<size_t, std::string> halo(1024);
+  Halo<size_t, std::string> halo(32 * 1024);
 #else
-  Halo<std::string, std::string> halo(1024);
+  Halo<std::string, std::string> halo(32 * 1024);
 #endif
   std::cout << "Halo start." << std::endl;
   int *r = new int[n];
 #ifdef NONVAR
   Pair_t<size_t, size_t> *rp = new Pair_t<size_t, size_t>[n];
-  Pair_t<size_t, size_t> *rp2 = new Pair_t<size_t, size_t>[n];
 #elif VARVALUE
   Pair_t<size_t, std::string> *rp = new Pair_t<size_t, std::string>[n];
 #else
@@ -59,8 +58,8 @@ int main(int argc, char *argv[]) {
   }
   halo.get_all();
   for (size_t i = 0; i < n; i++) {
-    cout << *reinterpret_cast<size_t *>(rp[i].key()) << "-" << rp[i].value()
-         << endl;
+    cout << *reinterpret_cast<size_t *>(rp[i].key()) << "-"
+         << *reinterpret_cast<size_t *>(&rp[i].value()[0]) << endl;
   }
   for (size_t i = 0; i < n; i++) {
 #ifdef NONVAR
@@ -68,11 +67,14 @@ int main(int argc, char *argv[]) {
 #elif VARVALUE
     Pair_t<size_t, std::string> p(i, reinterpret_cast<char *>(&i), 8);
 #else
+    size_t j = i + 1;
     Pair_t<std::string, std::string> p(reinterpret_cast<char *>(&i), 8,
-                                       reinterpret_cast<char *>(&i), 8);
+                                       reinterpret_cast<char *>(&j), 8);
 #endif
-    halo.Update(p, &r[i]);
+    halo.Update(p);
   }
+  Pair_t<std::string, std::string> *rp2 =
+      new Pair_t<std::string, std::string>[n];
   for (size_t i = 0; i < n; i++) {
 #ifdef NONVAR
     rp2[i].set_key(i);
@@ -85,7 +87,7 @@ int main(int argc, char *argv[]) {
   }
   halo.get_all();
   for (size_t i = 0; i < n; i++) {
-    cout << *reinterpret_cast<size_t *>(rp2[i].key()) << "-" << rp2[i].value()
+    cout << *reinterpret_cast<size_t *>(rp2[i].key()) << "-" << *reinterpret_cast<size_t *>(&rp2[i].value()[0]) 
          << endl;
   }
   return 0;

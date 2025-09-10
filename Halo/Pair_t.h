@@ -2,7 +2,6 @@
 #include <iostream>
 #include <string>
 namespace HALO {
-#define ROUND_UP(s, n) (((s) + (n)-1) & (~(n - 1)))
 enum OP_t { TRASH, INSERT, DELETED, UPDATE };
 const size_t INVALID = UINT64_MAX;
 const size_t MAX_VALUE_LEN = 512;
@@ -170,8 +169,11 @@ class Pair_t<std::string, std::string> {
     version = pt->version;
     _klen = pt->_klen;
     _vlen = pt->_vlen;
-    skey.assign(p + 6, _klen);
-    svalue.assign(p + 6 + _klen, _vlen);
+    skey.assign(p + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(OP_VERSION),
+                _klen);
+    svalue.assign(
+        p + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(OP_VERSION) + _klen,
+        _vlen);
   }
   void load(char *p) {
     auto pt = reinterpret_cast<Pair_t *>(p);
@@ -187,8 +189,8 @@ class Pair_t<std::string, std::string> {
   }
   size_t klen() { return _klen; }
   char *key() { return &skey[0]; }
-  std::string str_key() { return skey; }
-  std::string value() { return svalue; }
+  std::string &str_key() { return skey; }
+  std::string &value() { return svalue; }
 
   Pair_t(char *k_ptr, size_t klen, char *v_ptr, size_t vlen)
       : _klen(klen), _vlen(vlen), version(0) {
