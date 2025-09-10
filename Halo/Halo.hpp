@@ -31,7 +31,7 @@ using namespace std;
 #define CAS_U64_BOOL(a, b, c) (CAS_U64(a, b, c) == b)
 
 #define GET_CLHT_INDEX(kh, n) ((kh >> 56) % n)
-#define ROUND_UP(s, n) (((s) + (n)-1) & (~(n - 1)))
+#define ROUND_UP(s, n) (((s) + (n) - 1) & (~(n - 1)))
 constexpr size_t MAX_BATCHING_SIZE = 256;
 constexpr size_t READ_BUFFER_SIZE = 16 /* Pairs */;
 
@@ -131,7 +131,7 @@ class MemoryManager {
     local_offset = PAGE_SIZE + 1;
     base_addr = nullptr;
   };
-  ~MemoryManager(){};
+  ~MemoryManager() {};
   virtual void creat_new_space() = 0;
   void init(int);
   // offset and addr
@@ -1064,7 +1064,7 @@ class Halo {
       return true;
     }
   }
-  bool Update(Pair_t<KEY, VALUE> &p, int *r) {
+  bool Update(Pair_t<KEY, VALUE> &p) {
     if (Unlikely(mmanager.ID == -1))
       memory_manager_Pool.get_PM_MemoryManager(&mmanager);
     p.set_op(OP_t::UPDATE);
@@ -1218,10 +1218,6 @@ class Halo {
         continue;
       }
       auto r = reinterpret_cast<Pair_t<KEY, VALUE> *>(BUFFER_READ[i]);
-      auto p = reinterpret_cast<Pair_t<KEY, VALUE> *>(addrs[i]);
-      // cout << r->str_key() << "!" << p->str_key() << " " << p->value() <<
-      // endl;
-      if (r->str_key() != p->str_key()) cout << "ERROR!" << endl;
       r->load(addrs[i]);
       if (r->get_op() == OP_t::DELETED) r->set_empty();
     }

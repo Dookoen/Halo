@@ -1,6 +1,5 @@
 Language:        Cpp
 # BasedOnStyle:  Google
-SortIncludes: false
 AccessModifierOffset: -1
 AlignAfterOpenBracket: Align
 AlignConsecutiveMacros: false
