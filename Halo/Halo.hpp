@@ -1030,6 +1030,62 @@ class Halo {
     memory_manager_Pool.shutdown(clhts);
   }
 
+  bool Insert(Pair_t<KEY, VALUE> &p) {
+    auto len = p.size();
+    auto &pm = mmanager;
+
+    auto o_and_a = pm.halloc(p.size());
+    auto bigoffset = o_and_a.first;
+    auto paddr = o_and_a.second;
+    p.store_persist(paddr);
+    pmem_drain();
+    pm.update_metadata();
+    pmem_drain();
+
+    auto hkey = hash_func(reinterpret_cast<void *>(p.key()), p.klen());
+    auto n = GET_CLHT_INDEX(hkey, TABLE_NUM);
+    int r = clhts[n]->clht_put(hkey, bigoffset);
+    READ_LOCK();
+    return r;
+  }
+  void Insert(Pair_t<KEY, VALUE> ps[], int rs[], int num) {
+    if (Unlikely(mmanager.ID == -1))
+      memory_manager_Pool.get_PM_MemoryManager(&mmanager);
+    for (int i = 0; i < num; i++) {
+      auto &p = ps[i];
+      auto r = &rs[i];
+      auto hkey = hash_func(reinterpret_cast<void *>(p.key()), p.klen());
+      auto addr = get_PM_addr(hkey);
+      // check if the key exists
+      if (addr != nullptr) {
+        *r = EXIST;
+        WRITE_PASS_COUNT++;
+        if (WRITE_PASS_COUNT + WRITE_BUFFER_COUNTER > MAX_PAIR) {
+          do_insert_now(nullptr);
+        }
+        continue;
+      } else {
+        p.set_op(INSERT);
+        INSERT_RESULT_POINTER[WRITE_BUFFER_COUNTER++] = r;
+        auto sz = p.size();
+        auto tsz = WRITE_BUFFER_SIZE + sz;
+        auto threashold = MAX_BATCHING_SIZE;
+        if (tsz >= MAX_BATCHING_SIZE && tsz <= MAX_WRITE_BUFFER_SIZE ||
+            tsz < MAX_BATCHING_SIZE) {
+          p.store(WRITE_BUFFER + WRITE_BUFFER_SIZE);
+          WRITE_BUFFER_SIZE = tsz;
+          if (tsz < threashold) continue;
+        }
+        void *ptr = nullptr;
+        // current pair is a big pair that does not need to batch
+        if (tsz > MAX_WRITE_BUFFER_SIZE) ptr = &p;
+        // if ptr is not nullptr, the ptr point to a big pair.
+        do_insert_now(ptr);
+      }
+    }
+    do_insert_now();
+  }
+
   bool Insert(Pair_t<KEY, VALUE> &p, int *r) {
     if (Unlikely(mmanager.ID == -1))
       memory_manager_Pool.get_PM_MemoryManager(&mmanager);
@@ -1064,19 +1120,7 @@ class Halo {
       return true;
     }
   }
-  bool Update(Pair_t<KEY, VALUE> &p) {
-    if (Unlikely(mmanager.ID == -1))
-      memory_manager_Pool.get_PM_MemoryManager(&mmanager);
-    p.set_op(OP_t::UPDATE);
-    auto hkey = hash_func(reinterpret_cast<void *>(p.key()), p.klen());
-    auto n = GET_CLHT_INDEX(hkey, TABLE_NUM);
-    auto sz = clhts[n]->clht_put_replace(hkey, &p);
-    READ_LOCK();
-    if (!sz.first) {
-      return false;
-    }
-    return true;
-  }
+
   bool Get(Pair_t<KEY, VALUE> *p) {
     if (Unlikely(READ_BUFFER_SIZE == 1)) {
       auto hkey = hash_func(reinterpret_cast<void *>(p->key()), p->klen());
@@ -1096,7 +1140,56 @@ class Halo {
     READ_LOCK();
     return false;
   }
+  bool Get(Pair_t<KEY, VALUE> &p) {
+    auto hkey = hash_func(reinterpret_cast<void *>(p.key()), p.klen());
+    auto addr = get_PM_addr(hkey);
+    if (addr) {
+      p.load(addr);
+    }
+    READ_LOCK();
+    return addr != nullptr;
+  }
+  void Get(Pair_t<KEY, VALUE> ps[], int num) {
+    std::vector<char *> addrs;
+    addrs.reserve(num);
+    for (size_t i = 0; i < num; i++) {
+      auto &p = ps[i];
+      auto hkey = hash_func(reinterpret_cast<void *>(p.key()), p.klen());
+      auto addr = get_PM_addr(hkey);
+      if (addr) {
+        _mm_prefetch(addr, _MM_HINT_NTA);
+        addrs.emplace_back(addr);
+      } else
+        p.set_empty();
+    }
+    // load
+    for (size_t i = 0; i < addrs.size(); i++) {
+      if (!addrs[i]) {
+        continue;
+      }
+      auto &p = ps[i];
+      p.load(addrs[i]);
+      if (p.get_op() == OP_t::DELETED) p.set_empty();
+    }
+    BUFFER_READ_COUNTER = 0;
+    READ_LOCK();
+  }
   void get_all() { Gets(); }
+
+  bool Update(Pair_t<KEY, VALUE> &p) {
+    if (Unlikely(mmanager.ID == -1))
+      memory_manager_Pool.get_PM_MemoryManager(&mmanager);
+    p.set_op(OP_t::UPDATE);
+    auto hkey = hash_func(reinterpret_cast<void *>(p.key()), p.klen());
+    auto n = GET_CLHT_INDEX(hkey, TABLE_NUM);
+    auto sz = clhts[n]->clht_put_replace(hkey, &p);
+    READ_LOCK();
+    if (!sz.first) {
+      return false;
+    }
+    return true;
+  }
+
   bool Delete(Pair_t<KEY, VALUE> &p) {
     auto hkey = hash_func(reinterpret_cast<void *>(p.key()), p.klen());
     auto n = GET_CLHT_INDEX(hkey, TABLE_NUM);
@@ -1202,8 +1295,8 @@ class Halo {
  private:
   void Gets() {
     // prefetch
-    char *addrs[READ_BUFFER_SIZE];
-    for (size_t i = 0; i < READ_BUFFER_SIZE; i++) {
+    char *addrs[BUFFER_READ_COUNTER];
+    for (size_t i = 0; i < BUFFER_READ_COUNTER; i++) {
       auto p = reinterpret_cast<Pair_t<KEY, VALUE> *>(BUFFER_READ[i]);
       auto hkey = hash_func(reinterpret_cast<void *>(p->key()), p->klen());
       addrs[i] = get_PM_addr(hkey);
@@ -1213,7 +1306,7 @@ class Halo {
         p->set_empty();
     }
     // load
-    for (size_t i = 0; i < READ_BUFFER_SIZE; i++) {
+    for (size_t i = 0; i < BUFFER_READ_COUNTER; i++) {
       if (!addrs[i]) {
         continue;
       }

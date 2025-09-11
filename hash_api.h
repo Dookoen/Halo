@@ -63,7 +63,7 @@ class hash_api {
     Pair_t<std::string, std::string> p(reinterpret_cast<char *>(&key), 8, value,
                                        value_len);
 #endif
-    return t->Update(p, r);
+    return t->Update(p);
   }
 
   bool erase(size_t key, int tid = 0) {
