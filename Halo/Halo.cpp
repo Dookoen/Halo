@@ -1,3 +1,5 @@
+#include "Halo.hpp"
+
 #include <immintrin.h>
 #include <libpmem.h>
 #include <sched.h>
@@ -6,14 +8,10 @@
 #include <algorithm>
 #include <map>
 
-#include "Halo.hpp"
-
 namespace HALO {
 
-#define ROUND_UP(s, n) (((s) + (n)-1) & (~(n - 1)))
-
 MemoryManagerPool memory_manager_Pool;
-string PM_PATH;
+string PM_PATH="/mnt/pmem/Halo";
 mutex PM_MemoryManager::mtx;
 mutex DRAM_MemoryManager::mtx;
 mutex MemoryManagerPool::mtx_pm_pool;

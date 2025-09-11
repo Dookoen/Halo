@@ -163,6 +163,11 @@ class Pair_t<std::string, std::string> {
     skey.reserve(MAX_KEY_LEN);
     svalue.reserve(MAX_VALUE_LEN);
   };
+  Pair_t(std::string key, std::string value)
+      : _klen(key.size()), _vlen(value.size()), skey(key), svalue(value) {
+    op = 0;
+    version = 0;
+  };
   Pair_t(char *p) {
     auto pt = reinterpret_cast<Pair_t *>(p);
     op = pt->op;
@@ -200,6 +205,10 @@ class Pair_t<std::string, std::string> {
   void set_key(char *k_ptr, size_t kl) {
     _klen = kl;
     skey.assign(k_ptr, _klen);
+  }
+  void set_key(std::string &key) {
+    _klen = key.size();
+    skey = key;
   }
   void store_persist(char *addr) {
     auto p = reinterpret_cast<void *>(this);
