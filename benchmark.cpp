@@ -17,7 +17,7 @@
 using namespace std;
 using namespace pcm;
 // #define LATENCY
-#define PM_PCM
+// #define PM_PCM
 enum { OP_INSERT, OP_READ, OP_DELETE, OP_UPDATE };
 enum workload_type {
   YCSB,
@@ -369,9 +369,9 @@ int main(int argc, char **argv) {
   string load_data = "";
   string run_data = "";
   if (workload.find("ycsb") != string::npos) {
-    load_data = "YCSB/workloads/ycsb_load_workload";
+    load_data = "/home/hdk/Halo/YCSB/workloads/ycsb_load_workload";
     load_data += workload[workload.size() - 1];
-    run_data = "YCSB/workloads/ycsb_run_workload";
+    run_data = "/home/hdk/Halo/YCSB/workloads/ycsb_run_workload";
     run_data += workload[workload.size() - 1];
     wlt = YCSB;
   } else if (workload.find("PiBench") != string::npos) {

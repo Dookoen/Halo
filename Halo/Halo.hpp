@@ -1030,6 +1030,7 @@ class Halo {
     memory_manager_Pool.shutdown(clhts);
   }
 
+  // insert without batching
   bool Insert(Pair_t<KEY, VALUE> &p) {
     auto len = p.size();
     auto &pm = mmanager;
@@ -1048,6 +1049,8 @@ class Halo {
     READ_LOCK();
     return r;
   }
+
+  // insert with batching manually
   void Insert(Pair_t<KEY, VALUE> ps[], int rs[], int num) {
     if (Unlikely(mmanager.ID == -1))
       memory_manager_Pool.get_PM_MemoryManager(&mmanager);
@@ -1086,6 +1089,7 @@ class Halo {
     do_insert_now();
   }
 
+  // insert with batching automatically
   bool Insert(Pair_t<KEY, VALUE> &p, int *r) {
     if (Unlikely(mmanager.ID == -1))
       memory_manager_Pool.get_PM_MemoryManager(&mmanager);
@@ -1121,6 +1125,7 @@ class Halo {
     }
   }
 
+  // Get with batching automatically
   bool Get(Pair_t<KEY, VALUE> *p) {
     if (Unlikely(READ_BUFFER_SIZE == 1)) {
       auto hkey = hash_func(reinterpret_cast<void *>(p->key()), p->klen());
@@ -1140,6 +1145,8 @@ class Halo {
     READ_LOCK();
     return false;
   }
+
+  // Get without batching
   bool Get(Pair_t<KEY, VALUE> &p) {
     auto hkey = hash_func(reinterpret_cast<void *>(p.key()), p.klen());
     auto addr = get_PM_addr(hkey);
@@ -1149,6 +1156,8 @@ class Halo {
     READ_LOCK();
     return addr != nullptr;
   }
+
+  // Get with batching manually
   void Get(Pair_t<KEY, VALUE> ps[], int num) {
     std::vector<char *> addrs;
     addrs.reserve(num);
@@ -1231,7 +1240,10 @@ class Halo {
     memory_manager_Pool.info();
   }
 
-  void wait_all() { do_insert_now(); }
+  void wait_all() {
+    do_insert_now();
+    Gets();
+  }
   void reclaim_ppage(size_t page_id, size_t sz_freed) {
     if (!LOGCLEAN) return;
 

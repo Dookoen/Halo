@@ -48,11 +48,6 @@ INCS += -I../include -I../common/ $(OS_INCS)
 # default CFLAGS
 DEFAULT_CFLAGS += -std=gnu99
 DEFAULT_CFLAGS += -Wall
-DEFAULT_CFLAGS += -Werror
-DEFAULT_CFLAGS += -Wmissing-prototypes
-DEFAULT_CFLAGS += -Wpointer-arith
-DEFAULT_CFLAGS += -Wsign-conversion
-DEFAULT_CFLAGS += -Wsign-compare
 
 ifeq ($(WCONVERSION_AVAILABLE), y)
 DEFAULT_CFLAGS += -Wconversion

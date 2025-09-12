@@ -120,15 +120,63 @@ void insert_varlen() {
       cout << "key not found" << endl;
   }
 }
+void minibenchmark() {
+  PM_PATH = "/mnt/pmem/Halo_bench/";
+  Halo<size_t, size_t> halo(16 * 1024 * 1024);
+  std::vector<std::thread> t;
+  Timer t1;
+  t1.start();
+  for (size_t i = 0; i < 26; i++) {
+    t.emplace_back(
+        [](Halo<size_t, size_t> *h, int s) {
+          int r[128];
+          for (size_t i = s; i < 200000000; i += 26) {
+            Pair_t<size_t, size_t> p(i, i);
+            h->Insert(p, &r[i % 26]);
+          }
+          h->wait_all();
+        },
+        &halo, i);
+  }
+  for (size_t i = 0; i < 26; i++) {
+    t[i].join();
+  }
+
+  auto tt = t1.elapsed<std::chrono::milliseconds>();
+  t.clear();
+  printf("Throughput: run, %f Mops/s\n",
+         ((200000000 * 1.0) / 1000000) / (tt / 1000));
+  Pair_t<size_t, size_t> *ps = new Pair_t<size_t, size_t>[200000000];
+  t1.start();
+  for (size_t i = 0; i < 26; i++) {
+    t.emplace_back(
+        [ps](Halo<size_t, size_t> *h, int s) {
+          for (size_t i = s; i < 200000000; i += 26) {
+            ps[i].set_key(i);
+            h->Get(&ps[i]);
+          }
+          h->wait_all();
+        },
+        &halo, i);
+  }
+  for (size_t i = 0; i < 26; i++) {
+    t[i].join();
+  }
+  tt = t1.elapsed<std::chrono::milliseconds>();
+
+  printf("Throughput: run, %f Mops/s\n",
+         ((200000000 * 1.0) / 1000000) / (tt / 1000));
+}
 int main(int argc, char *argv[]) {
   std::cout << "==============Insert size_t=====================" << std::endl;
   insert_size_t();
   std::cout << "==============Recover=====================" << std::endl;
   insert_size_t();
-  std::cout << "==============Insert(batch) size_t====================="
+  std::cout << "==============Insert(batch)size_t====================="
             << std::endl;
   batch_insert();
   std::cout << "==============Insert varlen=====================" << std::endl;
   insert_varlen();
+  minibenchmark();
   return 0;
 }

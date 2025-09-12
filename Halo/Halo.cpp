@@ -68,20 +68,20 @@ char *get_DPage_addr(size_t offset) {
   return nullptr;
 }
 void READ_LOCK() {
-  if (RECLAIM.load()) RECLAIM_LOCK[mmanager.ID] = true;
+  // if (RECLAIM.load()) RECLAIM_LOCK[mmanager.ID] = true;
 }
 void WAIT_READ_LOCK() {
-  while (true) {
-    int count = 0;
-    if (mmanager.ID != -1 && mmanager.workthread)
-      RECLAIM_LOCK[mmanager.ID] = true;
-    for (size_t i = 0; i < CORE_NUM; i++)
-      if (RECLAIM_LOCK[i]) count++;
-    if (count == memory_manager_Pool.thread_counter.load()) break;
-  }
+  // while (true) {
+  //   int count = 0;
+  //   if (mmanager.ID != -1 && mmanager.workthread)
+  //     RECLAIM_LOCK[mmanager.ID] = true;
+  //   for (size_t i = 0; i < CORE_NUM; i++)
+  //     if (RECLAIM_LOCK[i]) count++;
+  //   if (count == memory_manager_Pool.thread_counter.load()) break;
+  // }
 }
 void RELEASE_READ_LOCK() {
-  for (size_t i = 0; i < CORE_NUM; i++) RECLAIM_LOCK[i] = false;
+  // for (size_t i = 0; i < CORE_NUM; i++) RECLAIM_LOCK[i] = false;
 }
 std::vector<std::string> split(const std::string &str,
                                const std::string &delims = " ") {
