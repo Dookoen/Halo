@@ -1,4 +1,4 @@
-CXX := g++ -O0 -ggdb
+CXX := g++ -O3
 CFLAGS := -std=c++17 -march=native -L./ -mavx 
 
 all: Halo
